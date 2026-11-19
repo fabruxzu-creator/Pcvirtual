@@ -1,0 +1,54 @@
+name: Virtual PC (Tailscale + StarDesk)
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutos que el PC queda encendido (mรกx 340)"
+        default: "300"
+
+jobs:
+  pc:
+    runs-on: windows-latest
+    timeout-minutes: 360
+    steps:
+      - name: Conectar a Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          hostname: virtual-pc
+
+      - name: Activar Escritorio Remoto (RDP)
+        shell: pwsh
+        env:
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
+        run: |
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' fDenyTSConnections 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          $pw = ConvertTo-SecureString $env:RDP_PASSWORD -AsPlainText -Force
+          New-LocalUser -Name "pcuser" -Password $pw -PasswordNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "pcuser"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "pcuser"
+
+      - name: Instalar StarDesk
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          winget install Stardesk.Stardesk --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Mostrar IP de Tailscale
+        shell: pwsh
+        run: |
+          $ip = tailscale ip -4
+          Write-Host "=============================="
+          Write-Host "IP Tailscale: $ip"
+          Write-Host "RDP: usuario pcuser @ $ip"
+          Write-Host "=============================="
+
+      - name: Mantener encendido
+        shell: pwsh
+        run: |
+          $fin = (Get-Date).AddMinutes([int]"${{ inputs.minutes }}")
+          while ((Get-Date) -lt $fin) { Start-Sleep -Seconds 60 }

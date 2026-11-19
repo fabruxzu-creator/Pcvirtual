@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       minutes:
-        description: "Minutos que el PC queda encendido (mรกx 340)"
+        description: "Minutos que el PC queda encendido (máx 340)"
         default: "300"
 
 jobs:
@@ -15,9 +15,7 @@ jobs:
       - name: Conectar a Tailscale
         uses: tailscale/github-action@v3
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
+          authkey: ${{ secrets.TS_AUTHKEY }}
           hostname: virtual-pc
 
       - name: Activar Escritorio Remoto (RDP)
